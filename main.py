@@ -1,7 +1,6 @@
 import requests
 import os
-import json
-from collections import namedtuple
+from requests.exceptions import HTTPError
 
 api_user = os.environ.get('API_USER')
 api_pass = os.environ.get('API_PASS')
@@ -14,40 +13,48 @@ class Parser:
 
     @staticmethod
     def get_request(url):
-        return requests.get(url=url, auth=(api_user, api_pass))
+        try:
+            response = requests.get(url=url, auth=(api_user, api_pass))
+            response.raise_for_status()
+        except HTTPError as http_err:
+            print(f'HTTP error occurred: {http_err}')
+        except Exception as err:
+            print(f'Other error occurred: {err}')
+        else:
+            return response
 
     def fetch_data(self):
-        step = 1
-        url = self.c_url
-        fetched_data = ''
+        start_id = 1
+        url = self.c_url + str(start_id)
+        base_set = set()
         while retrieved:= self.get_request(url):
             data = retrieved.text
             if data:
-                fetched_data += data
+                unique_set, last_record_id = self.find_unique(data)
+                base_set.update(unique_set)
+                step = int(last_record_id) + 1
+                url = self.c_url + str(step)
             else:
                 break
-            step += 1000
-            url = self.c_url + str(step)
-        return fetched_data
+        return base_set
 
     def find_unique(self, data):
-        base_set = set()
         tmp_ = [self.parse_by_split(single_line) for single_line in data.split('\n') if single_line]
-        total_amount = len(tmp_)
-        base_set.update(tmp_)
-        return base_set, total_amount
+        tmp_hashed = [hashed[0] for hashed in tmp_]
+        last_record_id = tmp_[-1][1]
+        return set(tmp_hashed), last_record_id
 
     # @stopper
     def parse_by_split(self, data):
         parsed = self.split_and_strip(data)
-        # Records = namedtuple('Records', 'id timestamp source_ip destination_ip payload')
         if parsed:
+            record_id = parsed[0]
             timestamp = self.cut_to_sec(parsed[1])
             source_ip = parsed[2]
             destination_ip = parsed[3]
             payload = parsed[4]
             tmp_set = (timestamp, source_ip, destination_ip, payload)
-            return tmp_set
+            return hash(tmp_set), record_id
 
     @staticmethod
     def cut_to_sec(timestamp):
@@ -67,11 +74,9 @@ def main():
     print('Initialize program...')
     p = Parser()
     print('Fetching data from api...')
-    all_records = p.fetch_data()
-    print('Finding unique records...')
-    unique_records, total_records = p.find_unique(all_records)
-    print(f'Total amount of records: {total_records}')
-    print(f'Number of unique records: {len(unique_records)}')
+    all_unique_records = p.fetch_data()
+    if all_unique_records:
+        print(f'Number of unique records: {len(all_unique_records)}')
 
 
 if __name__ == '__main__':

@@ -24,7 +24,7 @@ def read_3_unique():
         return data
 
 
-@pytest.fixture()
+@pytest.fixture(scope='session')
 def parser():
     return Parser()
 
@@ -36,26 +36,27 @@ def test_cut_to_sec(parser):
 
 
 def test_parse_by_split(parser):
-    assert parser.parse_by_split('15 2019-09-01T00:00:00.15Z 10.12.117.145 209.22.11.160 YfgYtgdPV+IruZwDVrj5Tg') == (
-        '2019-09-01T00:00:00', '10.12.117.145', '209.22.11.160', 'YfgYtgdPV+IruZwDVrj5Tg')
-    assert parser.parse_by_split('  id    2019-09-01T00:00:00.13Z tyu     yui   ip') == (
-        '2019-09-01T00:00:00', 'tyu', 'yui', 'ip')
-    assert parser.parse_by_split('  id    23.tdtdtdf tyu     yui   ip') == ('23', 'tyu', 'yui', 'ip')
+    assert parser.parse_by_split(
+        '15 2019-09-01T00:00:00.15Z 10.12.117.145 209.22.11.160 YfgYtgdPV+IruZwDVrj5Tg') == (hash(
+        ('2019-09-01T00:00:00', '10.12.117.145', '209.22.11.160', 'YfgYtgdPV+IruZwDVrj5Tg')), '15')
+    assert parser.parse_by_split('  47    2019-09-01T00:00:00.13Z tyu     yui   ip') == (hash((
+        '2019-09-01T00:00:00', 'tyu', 'yui', 'ip')), '47')
+    assert parser.parse_by_split('  32    23.tdtdtdf tyu     yui   ip') == (hash(('23', 'tyu', 'yui', 'ip')), '32')
 
 
 def test_find_unique(parser, read_all_unique):
-    n_unique, n_total = parser.find_unique(read_all_unique)
-    assert (len(n_unique), n_total) == (8, 8)
+    n_unique, last_record_id = parser.find_unique(read_all_unique)
+    assert len(n_unique) == 8
 
 
 def test_find_unique2(parser, read_2_unique):
-    n_unique, n_total = parser.find_unique(read_2_unique)
-    assert (len(n_unique), n_total) == (1, 6)
+    n_unique, last_record_id = parser.find_unique(read_2_unique)
+    assert (len(n_unique), last_record_id) == (1, '10240')
 
 
 def test_find_unique3(parser, read_3_unique):
-    n_unique, n_total = parser.find_unique(read_3_unique)
-    assert (len(n_unique), n_total) == (2, 6)
+    n_unique, last_record_id = parser.find_unique(read_3_unique)
+    assert (len(n_unique), last_record_id) == (2, '10240')
 
 
 def test_get_request(parser):
